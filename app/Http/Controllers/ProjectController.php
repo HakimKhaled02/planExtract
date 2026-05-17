@@ -195,29 +195,67 @@ class ProjectController extends Controller
             'cells' => 'nullable|array',
             'cells.*' => 'nullable|string|max:1000',
         ]);
-        
-        $project->update([
-            'name' => $request->name
-        ]);
+
+        // Log project name change manually
+        $oldName = $project->name;
+        if ($oldName !== $request->name) {
+            $project->update(['name' => $request->name]);
+            activity()
+                ->performedOn($project)
+                ->causedBy(auth()->user())
+                ->withProperties([
+                    'attributes' => ['name' => $request->name],
+                    'old'        => ['name' => $oldName],
+                    'column_name' => 'Project Name',
+                ])
+                ->log('updated');
+        }
         
         if ($request->has('cells')) {
             foreach ($request->cells as $cellId => $value) {
-                // Ensure the cell belongs to this project
                 $cell = \App\Models\CellValue::with('column')->where('id', $cellId)
                     ->whereHas('row', function($q) use ($project) {
                         $q->where('project_id', $project->id);
                     })->first();
                     
                 if ($cell) {
-                    $cell->update(['value' => $value]);
-                    
-                    // Sync grouped columns across all rows for data integrity
-                    if ($cell->column && $cell->column->order <= 7) {
-                        \App\Models\CellValue::where('column_id', $cell->column_id)
-                            ->whereHas('row', function($q) use ($project) {
-                                $q->where('project_id', $project->id);
-                            })
-                            ->update(['value' => $value]);
+                    $oldValue = $cell->value;
+                    $newValue = trim($value ?? '');
+
+                    // Only save & log if value actually changed
+                    if ($oldValue !== $newValue) {
+                        $cell->value = $newValue;
+                        // Disable automatic Spatie logging to avoid duplicates
+                        $cell->disableLogging();
+                        $cell->save();
+                        $cell->enableLogging();
+
+                        // Manually log with full context
+                        activity()
+                            ->performedOn($cell)
+                            ->causedBy(auth()->user())
+                            ->withProperties([
+                                'attributes'  => ['value' => $newValue],
+                                'old'         => ['value' => $oldValue],
+                                'column_name' => $cell->column ? $cell->column->name : 'Unknown',
+                            ])
+                            ->log('updated');
+
+                        // Sync grouped columns across all rows
+                        if ($cell->column && $cell->column->order <= 7) {
+                            \App\Models\CellValue::where('column_id', $cell->column_id)
+                                ->where('id', '!=', $cell->id)
+                                ->whereHas('row', function($q) use ($project) {
+                                    $q->where('project_id', $project->id);
+                                })
+                                ->get()
+                                ->each(function($sibling) use ($newValue) {
+                                    $sibling->disableLogging();
+                                    $sibling->value = $newValue;
+                                    $sibling->save();
+                                    $sibling->enableLogging();
+                                });
+                        }
                     }
                 }
             }
@@ -247,6 +285,17 @@ class ProjectController extends Controller
         ->paginate(20);
 
         return view('projects.history', compact('project', 'activities'));
+    }
+
+    public function deleteHistory(Request $request, Project $project)
+    {
+        if ($project->user_id !== auth()->id()) abort(403);
+
+        $request->validate(['ids' => 'required|array', 'ids.*' => 'integer']);
+
+        \Spatie\Activitylog\Models\Activity::whereIn('id', $request->ids)->delete();
+
+        return redirect()->route('projects.history', $project)->with('success', count($request->ids) . ' history record(s) deleted.');
     }
 
     public function travelClaim(Project $project)
