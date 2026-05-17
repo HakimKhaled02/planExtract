@@ -31,7 +31,7 @@
                             <button type="button"
                                 x-show="selected.length > 0"
                                 style="display:none"
-                                @click="if(confirm('Delete ' + selected.length + ' selected record(s)?')) $el.closest('form').submit()"
+                                @click="ConfirmDialog('Delete ' + selected.length + ' selected record(s)?', () => $el.closest('form').submit(), { title: 'Delete History?', confirmText: 'Yes, delete', confirmColor: '#dc2626', icon: 'warning', iconColor: '#f87171' })"
                                 class="inline-flex items-center px-3 py-1.5 bg-red-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest shadow-sm hover:bg-red-700 transition ease-in-out duration-150">
                                 <svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                                 Delete Selected (<span x-text="selected.length"></span>)
@@ -43,7 +43,7 @@
                                 <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
                                     <tr>
                                         <th class="px-3 py-3 w-8">
-                                            <input type="checkbox" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                            <input type="checkbox" class="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                                                 @change="toggleAll($event.target.checked)"
                                                 :checked="allChecked">
                                         </th>
@@ -80,7 +80,7 @@
                                             <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors bg-white dark:bg-gray-900/50">
                                                 <td class="px-3 py-2.5">
                                                     <input type="checkbox" name="ids[]" value="{{ $activity->id }}"
-                                                        class="row-checkbox rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                                        class="row-checkbox w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                                                         x-model="selected"
                                                         :value="'{{ $activity->id }}'">
                                                 </td>
@@ -99,7 +99,7 @@
                                             <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors bg-white dark:bg-gray-900/50">
                                                 <td class="px-3 py-2.5">
                                                     <input type="checkbox" name="ids[]" value="{{ $activity->id }}"
-                                                        class="row-checkbox rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                                        class="row-checkbox w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                                                         x-model="selected"
                                                         :value="'{{ $activity->id }}'">
                                                 </td>

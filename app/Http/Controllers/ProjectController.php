@@ -280,6 +280,7 @@ class ProjectController extends Controller
                 $q2->where('subject_type', \App\Models\CellValue::class)->whereIn('subject_id', $cellIds);
             });
         })
+        ->where('description', 'updated')
         ->with(['causer', 'subject'])
         ->latest()
         ->paginate(20);

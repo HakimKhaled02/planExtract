@@ -53,7 +53,7 @@
                                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
                                                         </a>
                                                         <!-- Delete -->
-                                                        <form action="{{ route('projects.destroy', $project) }}" method="POST" class="inline" x-data @submit.prevent="Swal.fire({title: 'Delete this record?', text: 'This action cannot be undone.', icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444', cancelButtonColor: '#f3f4f6', cancelButtonText: '<span style=\'color: #374151\'>Cancel</span>', confirmButtonText: 'Yes, delete'}).then((result) => { if (result.isConfirmed) $el.submit() })">
+                                                        <form action="{{ route('projects.destroy', $project) }}" method="POST" class="inline" x-data @submit.prevent="ConfirmDialog('This action cannot be undone.', () => $el.submit(), { title: 'Delete this record?', confirmText: 'Yes, delete', confirmColor: '#dc2626', icon: 'warning', iconColor: '#f87171' })">
                                                             @csrf
                                                             @method('DELETE')
                                                             <button type="submit" class="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/30 transition-all" title="Delete">
@@ -196,7 +196,7 @@
                                         <tr class="hover:bg-gray-50/80 dark:hover:bg-gray-700/50 transition-colors">
                                             <td class="px-3 py-2 whitespace-nowrap space-x-1 bg-white dark:bg-gray-800 group-hover:bg-gray-50/80 dark:group-hover:bg-gray-700/50 sticky left-0 z-10 shadow-[1px_0_0_0_#e5e7eb] dark:shadow-[1px_0_0_0_#374151] border-r border-gray-200 dark:border-gray-700">
                                                 <!-- Delete Project -->
-                                                <form action="{{ route('projects.destroy', $project) }}" method="POST" class="inline" x-data @submit.prevent="Swal.fire({title: 'Delete this project?', text: 'This action cannot be undone.', icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444', cancelButtonColor: '#f3f4f6', cancelButtonText: '<span style=\'color: #374151\'>Cancel</span>', confirmButtonText: 'Yes, delete'}).then((result) => { if (result.isConfirmed) $el.submit() })">
+                                                <form action="{{ route('projects.destroy', $project) }}" method="POST" class="inline" x-data @submit.prevent="ConfirmDialog('This action cannot be undone.', () => $el.submit(), { title: 'Delete this project?', confirmText: 'Yes, delete', confirmColor: '#dc2626', icon: 'warning', iconColor: '#f87171' })">
                                                     @csrf
                                                     @method('DELETE')
                                                     <button type="submit" class="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/30 transition-all" title="Delete Project">

@@ -78,37 +78,60 @@
             </div>
         </div>
         
-        <!-- Flash Messages (SweetAlert2 Toasts) -->
-        @if(session('success') || session('error'))
+        <!-- Flash Messages & Global Confirm (SweetAlert2) -->
         <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                const Toast = Swal.mixin({
-                    toast: true,
-                    position: 'top-end',
-                    showConfirmButton: false,
-                    timer: 3000,
-                    timerProgressBar: true,
-                    didOpen: (toast) => {
-                        toast.onmouseenter = Swal.stopTimer;
-                        toast.onmouseleave = Swal.resumeTimer;
-                    }
-                });
+            // Global modern Toast
+            window.Toast = Swal.mixin({
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 3500,
+                timerProgressBar: true,
+                customClass: {
+                    popup: 'rounded-xl shadow-lg border border-gray-100 text-sm font-medium',
+                    timerProgressBar: 'bg-indigo-400',
+                },
+                didOpen: (toast) => {
+                    toast.onmouseenter = Swal.stopTimer;
+                    toast.onmouseleave = Swal.resumeTimer;
+                }
+            });
 
+            // Global modern Confirm dialog
+            window.ConfirmDialog = (message, onConfirm, options = {}) => {
+                Swal.fire({
+                    title: options.title || 'Are you sure?',
+                    text: message,
+                    icon: options.icon || 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: options.confirmText || 'Yes, proceed',
+                    cancelButtonText: 'Cancel',
+                    confirmButtonColor: options.confirmColor || '#6366f1',
+                    cancelButtonColor: '#e5e7eb',
+                    customClass: {
+                        popup: 'rounded-2xl shadow-xl border border-gray-100',
+                        title: 'text-base font-semibold text-gray-800',
+                        htmlContainer: 'text-sm text-gray-500',
+                        confirmButton: 'rounded-lg px-5 py-2 text-sm font-semibold text-white',
+                        cancelButton: 'rounded-lg px-5 py-2 text-sm font-semibold !text-gray-700',
+                    },
+                    buttonsStyling: true,
+                }).then((result) => {
+                    if (result.isConfirmed) onConfirm();
+                });
+            };
+
+            document.addEventListener('DOMContentLoaded', function() {
                 @if(session('success'))
-                    Toast.fire({
-                        icon: 'success',
-                        title: "{{ session('success') }}"
-                    });
+                    Toast.fire({ icon: 'success', title: "{{ addslashes(session('success')) }}" });
                 @endif
-                
                 @if(session('error'))
-                    Toast.fire({
-                        icon: 'error',
-                        title: "{{ session('error') }}"
-                    });
+                    Toast.fire({ icon: 'error', title: "{{ addslashes(session('error')) }}" });
+                @endif
+                @if(session('warning'))
+                    Toast.fire({ icon: 'warning', title: "{{ addslashes(session('warning')) }}" });
                 @endif
             });
         </script>
-        @endif
     </body>
 </html>

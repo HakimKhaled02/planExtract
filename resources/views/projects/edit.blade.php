@@ -41,30 +41,77 @@
                                         <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
                                             @foreach($project->columns as $column)
                                                 @php
-                                                    $cell = $row->cellValues->where('column_id', $column->id)->first();
-                                                    $isNo = strtoupper($column->name) === 'NO';
-                                                    $isLongText = in_array($column->name, ['Company', 'Address', 'Remark']);
+                                                    $cell      = $row->cellValues->where('column_id', $column->id)->first();
+                                                    $isNo      = strtoupper($column->name) === 'NO';
+                                                    $isLong    = in_array($column->name, ['Company', 'Address', 'Remark']);
                                                     $isGrouped = $column->order <= 7;
-                                                    
+                                                    $isDate    = $column->name === 'Inspection Date';
+                                                    $isTime    = $column->name === 'Time';
+
                                                     $tdClass = 'min-w-[150px]';
-                                                    if ($isNo) $tdClass = 'w-12 min-w-[3rem] text-center';
+                                                    if ($isNo)                           $tdClass = 'w-12 min-w-[3rem] text-center';
                                                     elseif ($column->name === 'Address') $tdClass = 'min-w-[300px]';
                                                     elseif ($column->name === 'Company') $tdClass = 'min-w-[250px]';
+                                                    elseif ($isDate)                     $tdClass = 'min-w-[180px]';
+                                                    elseif ($isTime)                     $tdClass = 'min-w-[210px]';
+
+                                                    $inputClass = 'block w-full border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 rounded-md shadow-sm sm:text-sm';
+
+                                                    // Parse time for AM/PM picker
+                                                    $tH = ''; $tM = '00'; $tP = 'AM';
+                                                    if ($isTime && $cell && $cell->value) {
+                                                        $stored = $cell->value;
+                                                        if (preg_match('/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i', $stored, $tm)) {
+                                                            $tH = (int)$tm[1]; $tM = $tm[2]; $tP = strtoupper($tm[3]);
+                                                        } elseif (preg_match('/^(\d{1,2}):(\d{2})$/', $stored, $tm)) {
+                                                            $h24 = (int)$tm[1]; $tM = $tm[2];
+                                                            $tP  = $h24 >= 12 ? 'PM' : 'AM';
+                                                            $tH  = $h24 > 12 ? $h24 - 12 : ($h24 == 0 ? 12 : $h24);
+                                                        }
+                                                    }
                                                 @endphp
-                                                
+
                                                 @if($isGrouped)
                                                     @if($loop->parent->first)
                                                         <td rowspan="{{ $project->rows->count() }}" class="px-2 py-2 border-r border-b border-gray-200 dark:border-gray-700 {{ $tdClass }} align-top bg-white dark:bg-gray-800">
                                                             @if($cell)
                                                                 @if($isNo)
-                                                                    <input type="text" name="cells[{{ $cell->id }}]" value="{{ $cell->value }}" class="block w-full text-center border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 rounded-md shadow-sm sm:text-sm">
-                                                                @elseif($isLongText)
-                                                                    @php
-                                                                        $rows = $column->name === 'Address' ? 6 : 2;
-                                                                    @endphp
-                                                                    <textarea name="cells[{{ $cell->id }}]" rows="{{ $rows }}" class="block w-full border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 rounded-md shadow-sm sm:text-sm">{{ $cell->value }}</textarea>
+                                                                    <input type="text" name="cells[{{ $cell->id }}]" value="{{ $cell->value }}" class="{{ $inputClass }} text-center">
+                                                                @elseif($isDate)
+                                                                    <x-date-picker name="cells[{{ $cell->id }}]" value="{{ $cell->value }}" />
+                                                                @elseif($isTime)
+                                                                    <div x-data="{
+                                                                        h: '{{ $tH }}',
+                                                                        m: '{{ $tM }}',
+                                                                        p: '{{ $tP }}',
+                                                                        get val() {
+                                                                            return this.h ? String(this.h).padStart(2,'0') + ':' + String(this.m).padStart(2,'0') + ' ' + this.p : '';
+                                                                        }
+                                                                    }">
+                                                                        <input type="hidden" name="cells[{{ $cell->id }}]" :value="val">
+                                                                        <div class="flex items-center gap-1">
+                                                                            <select x-model="h" class="border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm text-xs py-1.5 px-1.5">
+                                                                                <option value="">--</option>
+                                                                                @for($hh = 1; $hh <= 12; $hh++)
+                                                                                    <option value="{{ $hh }}">{{ str_pad($hh, 2, '0', STR_PAD_LEFT) }}</option>
+                                                                                @endfor
+                                                                            </select>
+                                                                            <span class="text-gray-500 font-bold">:</span>
+                                                                            <select x-model="m" class="border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm text-xs py-1.5 px-1.5">
+                                                                                @foreach(['00','05','10','15','20','25','30','35','40','45','50','55'] as $mm)
+                                                                                    <option value="{{ $mm }}">{{ $mm }}</option>
+                                                                                @endforeach
+                                                                            </select>
+                                                                            <select x-model="p" class="border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm text-xs py-1.5 px-1.5">
+                                                                                <option value="AM">AM</option>
+                                                                                <option value="PM">PM</option>
+                                                                            </select>
+                                                                        </div>
+                                                                    </div>
+                                                                @elseif($isLong)
+                                                                    <textarea name="cells[{{ $cell->id }}]" rows="{{ $column->name === 'Address' ? 6 : 2 }}" class="{{ $inputClass }}">{{ $cell->value }}</textarea>
                                                                 @else
-                                                                    <input type="text" name="cells[{{ $cell->id }}]" value="{{ $cell->value }}" class="block w-full border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 rounded-md shadow-sm sm:text-sm">
+                                                                    <input type="text" name="cells[{{ $cell->id }}]" value="{{ $cell->value }}" class="{{ $inputClass }}">
                                                                 @endif
                                                             @endif
                                                         </td>
@@ -73,7 +120,7 @@
                                                     <td class="px-2 py-2 border-r border-gray-200 dark:border-gray-700 {{ $tdClass }} align-top">
                                                         @if($cell)
                                                             @if($column->name === 'Status')
-                                                                <select name="cells[{{ $cell->id }}]" class="block w-full border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 rounded-md shadow-sm sm:text-sm">
+                                                                <select name="cells[{{ $cell->id }}]" class="{{ $inputClass }}">
                                                                     <option value="" {{ $cell->value == '' ? 'selected' : '' }}>- Select -</option>
                                                                     <option value="Waiting Insp Date" {{ $cell->value == 'Waiting Insp Date' ? 'selected' : '' }}>Waiting Insp Date</option>
                                                                     <option value="Waiting Inspection" {{ $cell->value == 'Waiting Inspection' ? 'selected' : '' }}>Waiting Inspection</option>
@@ -82,13 +129,10 @@
                                                                     <option value="Waiting Report" {{ $cell->value == 'Waiting Report' ? 'selected' : '' }}>Waiting Report</option>
                                                                     <option value="Others" {{ $cell->value == 'Others' ? 'selected' : '' }}>Others</option>
                                                                 </select>
-                                                            @elseif($isLongText)
-                                                                @php
-                                                                    $rows = $column->name === 'Address' ? 6 : 2;
-                                                                @endphp
-                                                                <textarea name="cells[{{ $cell->id }}]" rows="{{ $rows }}" class="block w-full border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 rounded-md shadow-sm sm:text-sm">{{ $cell->value }}</textarea>
+                                                            @elseif($isLong)
+                                                                <textarea name="cells[{{ $cell->id }}]" rows="{{ $column->name === 'Address' ? 6 : 2 }}" class="{{ $inputClass }}">{{ $cell->value }}</textarea>
                                                             @else
-                                                                <input type="text" name="cells[{{ $cell->id }}]" value="{{ $cell->value }}" class="block w-full border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 rounded-md shadow-sm sm:text-sm">
+                                                                <input type="text" name="cells[{{ $cell->id }}]" value="{{ $cell->value }}" class="{{ $inputClass }}">
                                                             @endif
                                                         @endif
                                                     </td>
