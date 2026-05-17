@@ -35,7 +35,7 @@
                                     @endphp
                                     
                                     @foreach($sampleColumns as $column)
-                                        <th class="px-3 py-2 font-semibold tracking-wider whitespace-nowrap border-r border-gray-200 dark:border-gray-700">
+                                        <th class="px-3 py-2 font-semibold tracking-wider whitespace-nowrap border-r border-gray-200 dark:border-gray-700 {{ strtoupper($column->name) === 'NO' ? 'w-10 min-w-[2.5rem] text-center' : '' }}">
                                             {{ $column->name }}
                                         </th>
                                     @endforeach
@@ -49,9 +49,9 @@
                                                 @if($index === 0)
                                                     <td rowspan="{{ $project->rows->count() }}" class="px-3 py-2 whitespace-nowrap space-x-1 bg-white dark:bg-gray-800 sticky left-0 z-10 shadow-[1px_0_0_0_#e5e7eb] dark:shadow-[1px_0_0_0_#374151] border-r border-b border-gray-200 dark:border-gray-700 align-top">
                                                         <!-- Edit -->
-                                                        <button class="p-1 text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50 rounded dark:text-indigo-400 dark:hover:text-indigo-300 dark:hover:bg-indigo-900/30 transition-all" title="Edit">
+                                                        <a href="{{ route('projects.edit', $project) }}" class="inline-block p-1 text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50 rounded dark:text-indigo-400 dark:hover:text-indigo-300 dark:hover:bg-indigo-900/30 transition-all" title="Edit">
                                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
-                                                        </button>
+                                                        </a>
                                                         <!-- Delete -->
                                                         <form action="{{ route('projects.destroy', $project) }}" method="POST" class="inline" x-data @submit.prevent="Swal.fire({title: 'Delete this record?', text: 'This action cannot be undone.', icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444', cancelButtonColor: '#f3f4f6', cancelButtonText: '<span style=\'color: #374151\'>Cancel</span>', confirmButtonText: 'Yes, delete'}).then((result) => { if (result.isConfirmed) $el.submit() })">
                                                             @csrf
@@ -61,13 +61,13 @@
                                                             </button>
                                                         </form>
                                                         <!-- History -->
-                                                        <button class="p-1 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-700 transition-all" title="History">
+                                                        <a href="{{ route('projects.history', $project) }}" class="inline-block p-1 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-700 transition-all" title="History">
                                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                                        </button>
+                                                        </a>
                                                         <!-- Travel Allowance Claim -->
-                                                        <button class="p-1 text-green-600 hover:text-green-800 hover:bg-green-50 rounded dark:text-green-400 dark:hover:text-green-300 dark:hover:bg-green-900/30 transition-all" title="Travel Allowance Claim">
+                                                        <a href="{{ route('projects.travel-claim', $project) }}" class="inline-block p-1 text-green-600 hover:text-green-800 hover:bg-green-50 rounded dark:text-green-400 dark:hover:text-green-300 dark:hover:bg-green-900/30 transition-all" title="Travel Allowance Claim">
                                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"></path></svg>
-                                                        </button>
+                                                        </a>
                                                     </td>
                                                 @endif
                                                 
@@ -89,6 +89,10 @@
                                                                 </td>
                                                             @elseif($column->name === 'PIC')
                                                                 <td rowspan="{{ $project->rows->count() }}" class="px-3 py-2 text-gray-600 dark:text-gray-300 border-r border-b border-gray-200 dark:border-gray-700 whitespace-normal break-words min-w-[150px] align-top bg-white dark:bg-gray-800">
+                                                                    {{ $cellValue ? $cellValue->value : '-' }}
+                                                                </td>
+                                                            @elseif(strtoupper($column->name) === 'NO')
+                                                                <td rowspan="{{ $project->rows->count() }}" class="px-3 py-2 text-gray-600 dark:text-gray-300 border-r border-b border-gray-200 dark:border-gray-700 whitespace-nowrap text-center align-top bg-white dark:bg-gray-800 w-10 min-w-[2.5rem]">
                                                                     {{ $cellValue ? $cellValue->value : '-' }}
                                                                 </td>
                                                             @else
@@ -173,6 +177,10 @@
                                                             </td>
                                                         @elseif($column->name === 'PIC')
                                                             <td class="px-3 py-2 text-gray-600 dark:text-gray-300 border-r border-gray-200 dark:border-gray-700 whitespace-normal break-words min-w-[150px]">
+                                                                {{ $cellValue ? $cellValue->value : '-' }}
+                                                            </td>
+                                                        @elseif(strtoupper($column->name) === 'NO')
+                                                            <td class="px-3 py-2 text-gray-600 dark:text-gray-300 border-r border-gray-200 dark:border-gray-700 whitespace-nowrap text-center w-10 min-w-[2.5rem]">
                                                                 {{ $cellValue ? $cellValue->value : '-' }}
                                                             </td>
                                                         @else

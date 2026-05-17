@@ -177,6 +177,84 @@ class ProjectController extends Controller
         return view('projects.show', compact('project'));
     }
 
+    public function edit(Project $project)
+    {
+        if ($project->user_id !== auth()->id()) abort(403);
+        $project->load(['columns' => function($q) {
+            $q->orderBy('order');
+        }, 'rows.cellValues']);
+        return view('projects.edit', compact('project'));
+    }
+
+    public function update(Request $request, Project $project)
+    {
+        if ($project->user_id !== auth()->id()) abort(403);
+        
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'cells' => 'nullable|array',
+            'cells.*' => 'nullable|string|max:1000',
+        ]);
+        
+        $project->update([
+            'name' => $request->name
+        ]);
+        
+        if ($request->has('cells')) {
+            foreach ($request->cells as $cellId => $value) {
+                // Ensure the cell belongs to this project
+                $cell = \App\Models\CellValue::with('column')->where('id', $cellId)
+                    ->whereHas('row', function($q) use ($project) {
+                        $q->where('project_id', $project->id);
+                    })->first();
+                    
+                if ($cell) {
+                    $cell->update(['value' => $value]);
+                    
+                    // Sync grouped columns across all rows for data integrity
+                    if ($cell->column && $cell->column->order <= 7) {
+                        \App\Models\CellValue::where('column_id', $cell->column_id)
+                            ->whereHas('row', function($q) use ($project) {
+                                $q->where('project_id', $project->id);
+                            })
+                            ->update(['value' => $value]);
+                    }
+                }
+            }
+        }
+        
+        return redirect()->route('projects.index')->with('success', 'Project updated successfully.');
+    }
+
+    public function history(Project $project)
+    {
+        if ($project->user_id !== auth()->id()) abort(403);
+        
+        // Get all cell IDs for this project
+        $cellIds = \App\Models\CellValue::whereHas('row', function($q) use ($project) {
+            $q->where('project_id', $project->id);
+        })->pluck('id');
+
+        // Fetch activities
+        $activities = \Spatie\Activitylog\Models\Activity::where(function($q) use ($project, $cellIds) {
+            $q->where('subject_type', \App\Models\Project::class)->where('subject_id', $project->id);
+            $q->orWhere(function($q2) use ($cellIds) {
+                $q2->where('subject_type', \App\Models\CellValue::class)->whereIn('subject_id', $cellIds);
+            });
+        })
+        ->with(['causer', 'subject'])
+        ->latest()
+        ->paginate(20);
+
+        return view('projects.history', compact('project', 'activities'));
+    }
+
+    public function travelClaim(Project $project)
+    {
+        if ($project->user_id !== auth()->id()) abort(403);
+        return view('projects.travel-claim', compact('project'));
+    }
+
     public function destroy(Project $project)
     {
         if ($project->user_id !== auth()->id()) abort(403);
