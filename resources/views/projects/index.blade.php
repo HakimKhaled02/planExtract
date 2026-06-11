@@ -105,10 +105,13 @@
                                                         @if($column->name === 'Status')
                                                             <td class="px-3 py-2 text-gray-600 dark:text-gray-300 border-r border-gray-200 dark:border-gray-700 whitespace-nowrap">
                                                                 <div x-data="{ 
+                                                                        open: false,
                                                                         status: '{{ $cellValue ? $cellValue->value : '' }}',
                                                                         isUpdating: false,
+                                                                        dropdownStyle: '',
                                                                         updateStatus(newStatus) {
                                                                             this.status = newStatus;
+                                                                            this.open = false;
                                                                             this.isUpdating = true;
                                                                             fetch('{{ route('projects.cells.update', $cellValue->id) }}', {
                                                                                 method: 'PATCH',
@@ -124,10 +127,26 @@
                                                                             }).catch(() => {
                                                                                 this.isUpdating = false;
                                                                             });
+                                                                        },
+                                                                        toggleDropdown() {
+                                                                            if (this.open) {
+                                                                                this.open = false;
+                                                                            } else {
+                                                                                const rect = this.$refs.button.getBoundingClientRect();
+                                                                                const spaceBelow = window.innerHeight - rect.bottom;
+                                                                                const dropdownHeight = 220;
+                                                                                if (spaceBelow < dropdownHeight && rect.top > dropdownHeight) {
+                                                                                    this.dropdownStyle = `position: fixed; bottom: ${window.innerHeight - rect.top + 4}px; left: ${rect.left}px; width: ${rect.width}px;`;
+                                                                                } else {
+                                                                                    this.dropdownStyle = `position: fixed; top: ${rect.bottom + 4}px; left: ${rect.left}px; width: ${rect.width}px;`;
+                                                                                }
+                                                                                this.open = true;
+                                                                            }
                                                                         }
-                                                                    }">
+                                                                    }" class="relative">
                                                                     
-                                                                    <select @change="updateStatus($event.target.value)"
+                                                                    <!-- Button -->
+                                                                    <button x-ref="button" @click="toggleDropdown()" @click.away="open = false" @scroll.window.passive="open = false" type="button"
                                                                             :disabled="isUpdating"
                                                                             :class="{
                                                                                 'bg-yellow-300 text-black': status === 'Waiting Insp Date',
@@ -139,16 +158,29 @@
                                                                                 'bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-white': !status,
                                                                                 'opacity-50': isUpdating
                                                                             }"
-                                                                            class="block w-full text-[10px] font-bold rounded-full px-3 py-1.5 cursor-pointer transition-all min-w-[140px] border border-transparent focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-indigo-500 appearance-none bg-no-repeat bg-right pr-8"
-                                                                            style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236b7280%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E'); background-size: .6em auto; background-position: right .75rem center;">
-                                                                        <option value="" :selected="status === ''" class="bg-white text-gray-900 dark:bg-gray-800 dark:text-white">- Select -</option>
-                                                                        <option value="Waiting Insp Date" :selected="status === 'Waiting Insp Date'" class="bg-white text-gray-900 dark:bg-gray-800 dark:text-white">Waiting Insp Date</option>
-                                                                        <option value="Waiting Inspection" :selected="status === 'Waiting Inspection'" class="bg-white text-gray-900 dark:bg-gray-800 dark:text-white">Waiting Inspection</option>
-                                                                        <option value="Inspection Done" :selected="status === 'Inspection Done'" class="bg-white text-gray-900 dark:bg-gray-800 dark:text-white">Inspection Done</option>
-                                                                        <option value="Failed" :selected="status === 'Failed'" class="bg-white text-gray-900 dark:bg-gray-800 dark:text-white">Failed</option>
-                                                                        <option value="Waiting Report" :selected="status === 'Waiting Report'" class="bg-white text-gray-900 dark:bg-gray-800 dark:text-white">Waiting Report</option>
-                                                                        <option value="Others" :selected="status === 'Others'" class="bg-white text-gray-900 dark:bg-gray-800 dark:text-white">Others</option>
-                                                                    </select>
+                                                                            class="flex items-center justify-between w-full text-[10px] font-bold rounded-full px-3 py-1 cursor-pointer transition-all min-w-[130px] border border-transparent hover:ring-2 hover:ring-offset-1 hover:ring-indigo-500">
+                                                                        <span x-text="status ? status : '- Select -'"></span>
+                                                                        <svg class="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                                                                    </button>
+                                                                    
+                                                                    <!-- Dropdown Menu (Fixed positioned) -->
+                                                                    <div x-show="open" :style="dropdownStyle" style="display: none;"
+                                                                        x-transition:enter="transition ease-out duration-100"
+                                                                        x-transition:enter-start="transform opacity-0 scale-95"
+                                                                        x-transition:enter-end="transform opacity-100 scale-100"
+                                                                        x-transition:leave="transition ease-in duration-75"
+                                                                        x-transition:leave-start="transform opacity-100 scale-100"
+                                                                        x-transition:leave-end="transform opacity-0 scale-95"
+                                                                        class="fixed z-[9999] bg-white dark:bg-gray-800 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none p-1.5 space-y-1">
+                                                                        
+                                                                        <div @click="updateStatus('')" class="cursor-pointer text-[10px] font-bold px-2 py-1.5 rounded bg-gray-100 text-gray-900 hover:opacity-80 dark:bg-gray-700 dark:text-white">- Select -</div>
+                                                                        <div @click="updateStatus('Waiting Insp Date')" class="cursor-pointer text-[10px] font-bold px-2 py-1.5 rounded bg-yellow-300 text-black hover:opacity-80">Waiting Insp Date</div>
+                                                                        <div @click="updateStatus('Waiting Inspection')" class="cursor-pointer text-[10px] font-bold px-2 py-1.5 rounded bg-pink-500 text-white hover:opacity-80">Waiting Inspection</div>
+                                                                        <div @click="updateStatus('Inspection Done')" class="cursor-pointer text-[10px] font-bold px-2 py-1.5 rounded bg-emerald-700 text-white hover:opacity-80">Inspection Done</div>
+                                                                        <div @click="updateStatus('Failed')" class="cursor-pointer text-[10px] font-bold px-2 py-1.5 rounded bg-red-700 text-white hover:opacity-80">Failed</div>
+                                                                        <div @click="updateStatus('Waiting Report')" class="cursor-pointer text-[10px] font-bold px-2 py-1.5 rounded bg-blue-700 text-white hover:opacity-80">Waiting Report</div>
+                                                                        <div @click="updateStatus('Others')" class="cursor-pointer text-[10px] font-bold px-2 py-1.5 rounded bg-[#4B3B2B] text-[#FFE8C4] hover:opacity-80">Others</div>
+                                                                    </div>
                                                                 </div>
                                                             </td>
                                                         @elseif($column->name === 'Company')
