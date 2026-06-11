@@ -458,6 +458,26 @@ def _extract_dates(text: str) -> list:
     return re.findall(r"\b\d{2}/\d{2}/\d{4}\b", text)
 
 
+# ---------------------------------------------------------------------------
+# Clean Caj Category Column from visual OCR noise / misreads
+# ---------------------------------------------------------------------------
+def _clean_category(val: str) -> str:
+    val = val.strip()
+    # Normalize spaces and dashes
+    val = re.sub(r"\s+", " ", val)
+    val = re.sub(r"[-–—~=)]+", "-", val)
+    
+    # 1. Clean A11 - LIF variations
+    if re.search(r"(?i)\b(A[N1]{2}|AN|An)\b.*?\bL[I]?F\b", val):
+        return "A11 - LIF"
+    
+    # 2. Clean A12 - ESKALATOR / LALUAN GERAK variations
+    if re.search(r"(?i)\b(A[I1l]2|Al2|AI2|A12)\b.*?\bESKALATOR\b", val):
+        return "A12 - ESKALATOR / LALUAN GERAK"
+        
+    return val
+
+
 # =============================================================================
 # MAIN ENTRY POINT
 # =============================================================================
@@ -517,6 +537,7 @@ def extract_images(file_paths):
 
         # Generic columns — no content keyword restrictions
         kategori_caj  = _extract_column(text, [r"Kat[eo]gori\s+Caj", r"Kategori\s*Caj\s*[-–]\s*Jenis"])
+        kategori_caj  = [_clean_category(v) for v in kategori_caj]
         sub_jenis     = _extract_column(text, [r"Sub\s+J[oe]nis\s*(?:Loji)?"])
         kod_loji      = _extract_column(text, [r"Kod\s+Loji", r"Status\s+Loji"])
         no_siri_loji  = _extract_column(text, [r"No\.?\s*Siri\s*(?:Loji)?"])
