@@ -493,10 +493,10 @@ def extract_images(file_paths):
         maklumat_alamat    = _extract_address(text, text_thresh)
         pegawai_dihubungi  = _extract_header_field(text, [r"Pegawai\s+(?:Yang\s+)?Dihubungi"])
 
-        # Phone: only accept actual phone number digits, not form hint text
+        # Phone: only accept actual phone number digits, not form hint text (no letters)
         _raw_tel = _extract_header_field(text, [r"No\.?\s*(?:,\s*)?Telefon", r"Tel\.?\s*:"])
-        # A real phone number contains mostly digits (≥6 digits, ≤20 chars total)
-        if _raw_tel and re.search(r"\d{6,}", _raw_tel.replace("-", "").replace(" ", "")):
+        # A real phone number contains mostly digits (≥6 digits, ≤20 chars total) and no alphabetic characters
+        if _raw_tel and not re.search(r"[a-zA-Z]", _raw_tel) and re.search(r"\d{6,}", _raw_tel.replace("-", "").replace(" ", "")):
             no_telefon = re.sub(r"[^\d\+\-\s]", "", _raw_tel).strip()
         else:
             # Scan all lines for first phone-like value after No. Telefon
