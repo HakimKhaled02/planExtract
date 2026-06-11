@@ -5,6 +5,8 @@ import warnings
 import unicodedata
 from PIL import Image
 import pytesseract
+import cv2
+import numpy as np
 
 warnings.filterwarnings("ignore")
 
@@ -485,6 +487,7 @@ def extract_images(file_paths):
     try:
         text_parts = []
         text_parts_thresh = []
+        text_parts_horizontal = []
         for fp in file_paths:
             img = Image.open(fp)
             # 1. Default OCR text
@@ -492,8 +495,33 @@ def extract_images(file_paths):
             # 2. Thresholded/Binarized OCR text (helps capture grey text input fields/dropdowns)
             thresh_img = img.convert('L').point(lambda x: 0 if x < 180 else 255, '1')
             text_parts_thresh.append(pytesseract.image_to_string(thresh_img))
+            
+            # 3. Clean blue markings and run horizontal OCR (PSM 6)
+            try:
+                cv_img = cv2.imread(fp)
+                if cv_img is not None:
+                    hsv = cv2.cvtColor(cv_img, cv2.COLOR_BGR2HSV)
+                    lower_blue = np.array([90, 50, 50])
+                    upper_blue = np.array([130, 255, 255])
+                    blue_mask = cv2.inRange(hsv, lower_blue, upper_blue)
+                    
+                    clean_img = cv_img.copy()
+                    clean_img[blue_mask > 0] = [255, 255, 255]
+                    
+                    gray = cv2.cvtColor(clean_img, cv2.COLOR_BGR2GRAY)
+                    _, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY)
+                    
+                    pil_clean = Image.fromarray(thresh)
+                    horiz_text = pytesseract.image_to_string(pil_clean, config="--psm 6", lang="eng")
+                    text_parts_horizontal.append(horiz_text)
+                else:
+                    text_parts_horizontal.append("")
+            except Exception:
+                text_parts_horizontal.append("")
+
         text = unicodedata.normalize("NFKC", "\n".join(text_parts))
         text_thresh = unicodedata.normalize("NFKC", "\n".join(text_parts_thresh))
+        text_horizontal = unicodedata.normalize("NFKC", "\n".join(text_parts_horizontal))
 
         # ------------------------------------------------------------------
         # 1. Header / form fields (single values)
@@ -542,15 +570,34 @@ def extract_images(file_paths):
         kod_loji      = _extract_column(text, [r"Kod\s+Loji", r"Status\s+Loji"])
         no_siri_loji  = _extract_column(text, [r"No\.?\s*Siri\s*(?:Loji)?"])
 
-        # Use all Kadar variants from TABLE_COLUMNS for rate
-        kadar_caj     = _extract_column(text, [
-            r"Kadar\s*(?:Caj)?(?:\s*\(.*?\))?\s*",
-            r"Kadar\s*\(RM",
-            r"Rate\s*(?:\(.*?\))?\s*",
-            r"Kadar\b",
-        ])
-        # Filter kadar to only numeric/money values if mixed with other text
-        kadar_caj = [v for v in kadar_caj if re.search(r"[\d]", v)]
+        # Extract rate/kadar from horizontal text if a Kadar column is present,
+        # otherwise fallback to default vertical column extraction.
+        has_kadar_col = bool(re.search(r'(?i)\bkadar\b', text_horizontal))
+        if has_kadar_col:
+            kadar_caj = [""] * len(plant_reg_nos)
+            matches = re.findall(r'(?m)^\s*(\d{1,2})\s+.*?\b(\d{1,2})\s+(\d{3,4})\b', text_horizontal)
+            rate_map = {}
+            for row_idx_str, rate_str, charge_str in matches:
+                try:
+                    row_idx = int(row_idx_str)
+                    rate_map[row_idx] = rate_str
+                except ValueError:
+                    pass
+            for i in range(len(plant_reg_nos)):
+                row_num = i + 1
+                if row_num in rate_map:
+                    kadar_caj[i] = rate_map[row_num]
+                elif i < len(matches):
+                    kadar_caj[i] = matches[i][1]
+        else:
+            kadar_caj     = _extract_column(text, [
+                r"Kadar\s*(?:Caj)?(?:\s*\(.*?\))?\s*",
+                r"Kadar\s*\(RM",
+                r"Rate\s*(?:\(.*?\))?\s*",
+                r"Kadar\b",
+            ])
+            # Filter kadar to only numeric/money values if mixed with other text
+            kadar_caj = [v for v in kadar_caj if re.search(r"[\d]", v)]
 
         # Kod Loji fallback: short alphanumeric codes only (e.g. "PMA", "PE")
         if not kod_loji:
