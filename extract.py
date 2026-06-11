@@ -233,9 +233,31 @@ def _extract_header_field(text: str, header_variants: list, max_lines: int = 3) 
 
 
 # ---------------------------------------------------------------------------
+# Common Malaysian address OCR typo corrections
+# ---------------------------------------------------------------------------
+def _clean_address_typos(s: str) -> str:
+    replacements = {
+        r"\bJln Piu\b": "Jln PJU",
+        r"\bJLN PIU\b": "JLN PJU",
+        r"\bjln piu\b": "jln pju",
+        r"\bPju 14/": "PJU 1A/",
+        r"\bPJU 14/": "PJU 1A/",
+        r"\bpju 14/": "pju 1a/",
+        r"\bPetaling Java\b": "Petaling Jaya",
+        r"\bPETALING JAVA\b": "PETALING JAYA",
+        r"\bpetaling java\b": "petaling jaya",
+        r"\bKuala Lampur\b": "Kuala Lumpur",
+        r"\bKUALA LAMPUR\b": "KUALA LUMPUR",
+    }
+    for pat, rep in replacements.items():
+        s = re.sub(pat, rep, s)
+    return s
+
+
+# ---------------------------------------------------------------------------
 # Address extraction (special: multi-part Poskod + Bandar + Negeri)
 # ---------------------------------------------------------------------------
-def _extract_address(text: str) -> str:
+def _extract_address(text: str, text_thresh: str = "") -> str:
     """Extract street address + postcode + city + state as one string."""
 
     def _skip(ln: str) -> bool:
@@ -294,8 +316,9 @@ def _extract_address(text: str) -> str:
                 break
 
     # Poskod / Bandar / Negeri
-    ak_m = re.search(r"Alamat\s+Kedudukan\s*\n", text, re.IGNORECASE)
-    locality = text[ak_m.end():] if ak_m else text
+    search_text = text_thresh if text_thresh else text
+    ak_m = re.search(r"Alamat\s+Kedudukan", search_text, re.IGNORECASE)
+    locality = search_text[ak_m.end():] if ak_m else search_text
 
     poskod = bandar = negeri = ""
 
@@ -318,27 +341,53 @@ def _extract_address(text: str) -> str:
         pk = re.search(r"(?is)\bPoskod\s*[:\.]?\s*(?:\n\s*)?\b(\d{4,7})\b", locality)
         if pk:
             poskod = pk.group(1)
+    if not poskod:
+        # Fallback: search for a 5-digit postcode near the word Poskod in the text
+        poskod_match = re.search(r"(?i)Poskod", search_text)
+        if poskod_match:
+            pk_m = re.search(r"\b(\d{5})\b", search_text[poskod_match.start():poskod_match.start() + 250])
+            if pk_m:
+                poskod = pk_m.group(1)
+
+    # If addr_text contains a 5-digit postcode at the end, extract it and strip it
+    postcode_in_addr = re.search(r"\b(\d{5})\b\s*$", addr_text)
+    if postcode_in_addr:
+        if not poskod:
+            poskod = postcode_in_addr.group(1)
+        addr_text = addr_text[:postcode_in_addr.start()].strip(" ,.")
+
     if not bandar:
         bm = re.search(r"(?is)\bBandar\s*[:\.]?\s*(?:\n\s*)?([^\n]+)", locality)
         if bm:
             bandar = bm.group(1).strip().split("\n")[0].rstrip("|•◆▼").strip()
+    if not bandar:
+        # Fallback: search for a city preceding a known state (e.g. "PETALING JAVA SELANGOR")
+        states_pat = r"(Selangor|Johor|Kedah|Kelantan|Melaka|Negeri Sembilan|Pahang|Perak|Perlis|Pulau Pinang|Sabah|Sarawak|Terengganu|Kuala Lumpur)"
+        bm = re.search(r"(?i)\b([a-zA-Z ]{3,30})\s+" + states_pat + r"\b", locality)
+        if bm:
+            bandar = bm.group(1).strip().title()
+            if not negeri:
+                negeri = bm.group(2).strip().title()
+
     if not negeri:
         nm = re.search(r"(?is)\bNegeri\s*[:\.]?\s*(?:\n\s*)?([^\n]+)", locality)
         if nm:
             negeri = nm.group(1).strip().split("\n")[0].rstrip("|•◆▼").strip()
     if not negeri:
-        ikkp = re.search(r"(?i)Pilihan\s+IKKP\s+Negeri[^\n]*\n\s*([A-Z][A-Z\s]{2,30})", text)
+        # Pilihan IKKP Negeri fallback (case-insensitive search restricted to single line to avoid bleed)
+        ikkp = re.search(r"(?i)Pilihan\s+IKKP\s+Negeri[^\n]*\n\s*([A-Z][A-Z ]{2,30})", search_text)
         if ikkp:
             negeri = ikkp.group(1).strip().title()
 
     addr_text = addr_text.strip(". ,")
-    return ", ".join(
+    result = ", ".join(
         x for x in (
             addr_text,
             " ".join(p for p in (poskod, bandar) if p),
             negeri,
         ) if x
     )
+    return _clean_address_typos(result)
 
 
 # ---------------------------------------------------------------------------
@@ -415,10 +464,16 @@ def _extract_dates(text: str) -> list:
 def extract_images(file_paths):
     try:
         text_parts = []
+        text_parts_thresh = []
         for fp in file_paths:
             img = Image.open(fp)
+            # 1. Default OCR text
             text_parts.append(pytesseract.image_to_string(img))
+            # 2. Thresholded/Binarized OCR text (helps capture grey text input fields/dropdowns)
+            thresh_img = img.convert('L').point(lambda x: 0 if x < 180 else 255, '1')
+            text_parts_thresh.append(pytesseract.image_to_string(thresh_img))
         text = unicodedata.normalize("NFKC", "\n".join(text_parts))
+        text_thresh = unicodedata.normalize("NFKC", "\n".join(text_parts_thresh))
 
         # ------------------------------------------------------------------
         # 1. Header / form fields (single values)
@@ -435,7 +490,7 @@ def extract_images(file_paths):
                 _cand = _clean_value(_reg_m.group(1))
                 if _cand and not re.match(r"(?i)^(alamat|nama|pegawai|no\.|emel)", _cand):
                     no_pend_pemunya = _cand
-        maklumat_alamat    = _extract_address(text)
+        maklumat_alamat    = _extract_address(text, text_thresh)
         pegawai_dihubungi  = _extract_header_field(text, [r"Pegawai\s+(?:Yang\s+)?Dihubungi"])
 
         # Phone: only accept actual phone number digits, not form hint text

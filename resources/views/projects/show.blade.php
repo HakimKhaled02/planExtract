@@ -47,15 +47,21 @@
                                                     $cellValue = $row->cellValues->where('column_id', $column->id)->first();
                                                     $isGrouped = $column->order <= 7;
                                                 @endphp
+                                                @php
+                                                    $displayValue = $cellValue ? $cellValue->value : '';
+                                                    if ($column->name === 'Inspection Date' && $displayValue) {
+                                                        $displayValue = date('d/m/Y', strtotime($displayValue));
+                                                    }
+                                                @endphp
                                                 @if($isGrouped)
                                                     @if($index === 0)
                                                         <td rowspan="{{ $project->rows->count() }}" class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300 align-top border-r border-gray-200 dark:border-gray-700">
-                                                            {{ $cellValue ? $cellValue->value : '' }}
+                                                            {{ $displayValue }}
                                                         </td>
                                                     @endif
                                                 @else
                                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">
-                                                        {{ $cellValue ? $cellValue->value : '' }}
+                                                        {{ $displayValue }}
                                                     </td>
                                                 @endif
                                             @endforeach
